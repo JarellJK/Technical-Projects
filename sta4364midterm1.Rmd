@@ -1,0 +1,145 @@
+--- 
+title: "Midterm 1"
+author: "Knight"
+date: "2022-10-18"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# set seed to reproduce random computations
+set.seed(2)
+
+# read in the csv file (use stringsAsFactors to automatically convert strings to factors)
+midterm_df = read.csv("midterm_data_1.csv", stringsAsFactors=TRUE)
+
+# remove rows with missing features
+midterm_df = na.omit(midterm_df)
+
+# print the first few rows
+head(midterm_df)
+
+# get a summary of the data
+summary(midterm_df)
+
+# get rid of name (don't need any data that is just an identifier)
+midterm_df$Name = NULL
+
+# convert feat.c and feat.g class (to categorical variables)
+midterm_df$feat.c = as.factor(midterm_df$feat.c)
+midterm_df$feat.g = as.factor(midterm_df$feat.g)
+```
+
+```{r}
+# print a summary of prepared data
+summary(midterm_df)
+```
+
+```{r}
+#pairwise scatterplot of all predictors
+pairs(midterm_df)
+```
+
+
+
+```{r}
+#Compute the pairwise correlations between all numerical columns
+set.seed(11)
+
+x = as.data.frame(matrix(rnorm(121), ncol = 11))
+x$L1 = letters[1:11]
+x$L2 = letters[12:22]
+cor(x[sapply(x, is.numeric)])
+```
+
+```{r}
+## get indices for train/test split
+num_samples_train = ceiling(0.75 * nrow(midterm_df))
+train_inds = sample(1:nrow(midterm_df), num_samples_train, replace=FALSE)
+# split into training and test sets
+mid_train = midterm_df[train_inds,]
+mid_test = midterm_df[-train_inds,]
+
+head(mid_train)
+dim(mid_train)
+
+head(mid_test)
+dim(mid_test)
+```
+
+```{r}
+#Linear regression
+full_midterm = lm(response ~ ., data=mid_train)
+summary(full_midterm)
+```
+**Coefficients of feat.c: Depending on which categorical class the data falls into, whether 2 or 4, it actually decreases the response on average as they are negative values. R-squared is the measure of fit that shows just how much variation of the dependent variable can be explained by the independent variable(s) in the regression model. So nearly three-quarters of this observed variation can be explained by the model's inputs. The RSE is relatively small so it suggests that the linear model fits the data well. The high F-Stat indicates the between-group variation is larger than the within-group variation; this could indicate that this model is a good model to measure/predict the response.**
+
+```{r}
+plot(full_midterm)
+```
+
+
+```{r}
+#Transforming variables to create quadratic terms
+midterm_quadratic = lm(response ~ (feat.a + feat.b + feat.c + feat.d + feat.e + feat.f + feat.g + feat.h + feat.i)^2 + I(feat.a^2) + I(feat.b^2) + I(feat.d^2) + I(feat.e^2) + I(feat.f^2) + I(feat.h^2) + I(feat.i^2),  data=mid_train)
+summary(midterm_quadratic)
+plot(midterm_quadratic)
+```
+
+```{r}
+## Making a Reduced model
+mid_small =  lm(response ~ feat.a + feat.e + feat.h, data=mid_train)
+summary(mid_small)
+plot(mid_small)
+```
+
+```{r}
+## Predictions with Models (Linear Model)
+pred_quadratic = predict(midterm_quadratic, newdata=mid_test)
+pred_small = predict(mid_small, newdata=mid_test)
+summary(pred_quadratic)
+summary(pred_small)
+```
+
+```{r}
+# calculate MSE for both models
+mse_quadratic = mean((pred_quadratic - mid_test$response)^2)
+mse_small = mean((pred_small - mid_test$response)^2)
+# print results
+print(paste0("Full Quadratic MSE: ", mse_quadratic))
+print(paste0("Reduced Model MSE: ", mse_small))
+
+# calculate the R^2 for both models
+rsquared_quadratic = 1 - mse_quadratic/var(mid_test$response)
+rsquared_small = 1 - mse_small/var(mid_test$response)
+# print results
+print(paste0("Full Quadratic R^2: ", rsquared_quadratic))
+print(paste0("Reduced Model R^2: ", rsquared_small))
+
+#Here, it shows that the reduced model is slightly less as predictive as the full quadratic model. However, it appears the full model is overfitting the training data substantially versus the reduced model (compared to the R^2 from the training models).
+```
+
+```{r}
+#Confidence Interval
+confint(mid_small)
+```
+
+```{r}
+#Determining number of observations within CI
+new.data = data.frame(feat.a = c(-8, 0.97, 12), feat.e = c(-10, -2.6, 2.8), feat.h = c(-6, 0.14, 6.3))
+predict(mid_small, new.data, interval = "confidence")
+predict(mid_small, new.data, interval = "prediction")
+
+data <- pred_small
+sd(data)
+mean(data)
+pnorm(95, mean=27.08479, sd=26.3835) - pnorm(5, mean=27.08479, sd=26.3835)
+(pnorm(95, mean=27.08479, sd=26.3835) - pnorm(5, mean=27.08479, sd=26.3835))*249
+quantile(data, probs = c(.05, .95), na.rm = FALSE)
+
+```
